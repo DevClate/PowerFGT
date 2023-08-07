@@ -23,13 +23,13 @@
 
 This is a Powershell module for configure a FortiGate (Fortinet) Firewall.
 
-With this module (version 0.6.1) you can manage:
+With this module (version 0.7.0) you can manage:
 
-- [Address](#address) (Add/Get/Copy/Set/Remove object type ipmask/subnet, FQDN, iprange)
+- [Address](#address) (Add/Get/Copy/Set/Remove object type ipmask/subnet, FQDN, iprange and geo)
 - [AddressGroup](#address-group) (Add/Get/Copy/Set/Remove and Add/Remove Member)
 - DNS (Get)
 - HA (Get)
-- [Interface](#interface) (Add/Get/Set/Remove and Add/remove Member)
+- [Interface](#interface) (Add/Get/Set/Remove Vlan, aggregate, loopback and Add/Remove Member)
 - IP Pool (Get)
 - [Log Traffic](#log-traffic) (Get)
 - [Monitor](#monitor) (Get)
@@ -45,12 +45,15 @@ With this module (version 0.6.1) you can manage:
 - User LDAP (Get)
 - User Local (Get)
 - User Group (Get)
+- User SAML (Get)
 - User RADIUS (Get)
 - [VDOM](#vdom) (Get)
 - [Virtual IP](#virtual-ip) (Add/Get/Remove object type static-nat)
 - [Virtual IP Group](#virtual-ip-group) (Add/Get/Copy/Set/Remove and Add/Remove Member)
 - Virtual WAN Link/SD-WAN (Get)
-- VPN IPsec Phase 1/Phase 2 Interface (Get)
+- [VPN IPsec](#vpn-ipsec) [Phase 1](#vpn-ipsec-interface-phase-1)/[Phase 2](#vpn-ipsec-interface-phase-2) Interface (Add/Get/Set/Remove)
+- VPN SSL (Get Client, Portal, Settings)
+- Web Filter (Get Profile)
 - [Zone](#zone) (Add/Get/Set/Remove and Add/Remove Member)
 
 There is some extra feature
@@ -106,8 +109,29 @@ The first thing to do is to connect to a FortiGate Firewall with the command `Co
 
 #we get a prompt for credential
 ```
-if you get a warning about `Unable to connect` Look [Issue](#issue)
 
+You can select the port using `-port` parameter
+
+```powershell
+# Connect to the FortiGate Firewall using port 4443
+    Connect-FGT 192.0.2.1 -port 4443
+```
+
+if you are using OTP (FortiToken) for admin access, you can use -token_code or -token_prompt for specifity or ask the token/OTP when connecting
+
+```powershell
+# Connect to the FortiGate Firewall with the token asked
+    Connect-FGT 192.0.2.1 -token_prompt
+```
+
+You can also connect using API Token ([Documentation for Generate REST API ](https://docs.fortinet.com/document/fortigate/7.2.1/administration-guide/399023/rest-api-administrator))
+
+```powershell
+# Connect to the FortiGate Firewall with API Token
+    Connect-FGT 192.0.2.1 -api_token 79GyN89Q7w00rG6pj09yd7wGG3kmds
+```
+
+if you get a warning about `Unable to connect` Look [Issue](#issue)
 
 ### Address
 
@@ -250,7 +274,7 @@ or delete it `Remove-FGTFirewallAddress`.
     Performing the operation "Remove Firewall Address" on target "MyNetwork".
     [Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "Y"):Y
 
-#You can also create other address type like fqdn or iprange
+#You can also create other address type like fqdn, iprange or geography
 
 # Create an address (type fqdn)
     Add-FGTFirewallAddress -Name FortiPower -fqdn fortipower.github.io
@@ -305,6 +329,26 @@ or delete it `Remove-FGTFirewallAddress`.
     filter               : 
     sdn-addr-type        : private
     obj-id               : 
+    list                 : {}
+    tagging              : {}
+    allow-routing        : disable
+
+# Create an address (type geography)
+    Add-FGTFirewallAddress -name MyCountry -country FR
+
+    name                 : MyCountry
+    q_origin_key         : MyCountry
+    uuid                 : 7cca6b06-f8ab-51ec-8db4-a82384435e50
+    type                 : geography
+    country              : FR
+    cache-ttl            : 0
+    sdn                  :
+    comment              :
+    visibility           : enable
+    associated-interface :
+    color                : 0
+    filter               :
+    obj-id               :
     list                 : {}
     tagging              : {}
     allow-routing        : disable
@@ -897,6 +941,32 @@ modify its properties `Set-FGTSystemInterface` or delete it `Remove-FGTSystemInt
     mode                                       : static
     [...]
 
+# Create an interface (type LACP)
+    Add-FGTSystemInterface -name PowerFGT_lacp -atype lacp -member port9, port10
+
+    name                                       : PowerFGT_lacp
+    q_origin_key                               : PowerFGT_lacp
+    vdom                                       : root
+    vrf                                        : 0
+    [...]
+    type                                       : aggregate
+    [...]
+    member                                     : {@{interface-name=port9; q_origin_key=port9}, @{interface-name=port10; q_origin_key=port10}}
+    lacp-mode                                  : active
+    [...]
+
+# Create an interface (type Loopback)
+    Add-FGTSystemInterface -name PowerFGT_lo -loopback -mode static -ip 192.0.2.1 -netmask 255.255.255.255 -allowaccess ping
+
+    name                                       : PowerFGT_lo
+    q_origin_key                               : PowerFGT_lo
+    vdom                                       : root
+    [...]
+    ip                                         : 192.0.2.1 255.255.255.255
+    allowaccess                                : ping
+    type                                       : loopback
+    [...]
+
 # Get information an Interface (name) and display only some field (using Format-Table)
     Get-FGTSystemInterface -name PowerFGT_vlan23 | select name, vlanid, ip
 
@@ -1047,19 +1117,139 @@ You can change System Settings and System Global (settings) using `Set-FGTSystem
 
 ```
 
+### VPN IPsec
+
+#### VPN IPsec Interface Phase 1
+
+You can create a new VPN IPsec (Interface Phase1) `Add-FGTVpnIpsecPhase1Interface`,
+retrieve its information `Get-FGTVpnIpsecPhase1Interface`, modify its properties `Set-FGTVpnIpsecPhase1Interface`
+or delete it `Remove-FGTVpnIpsecPhase1Interface`.
+
+```powershell
+
+# Create a static VPN IPsec Phase 1 Interface named PowerFGT_VPN with interface port2 with Remote Gateway 192.0.2.1
+    Add-FGTVpnIpsecPhase1Interface -name PowerFGT_VPN -type static -interface port2 -psksecret MySecret -remotegw 192.0.2.1
+
+    name                        : PowerFGT_VPN
+    q_origin_key                : PowerFGT_VPN
+    type                        : static
+    interface                   : port2
+    ip-version                  : 4
+    ike-version                 : 1
+    local-gw                    : 0.0.0.0
+    local-gw6                   : ::
+    remote-gw                   : 192.0.2.1
+    [...]
+
+
+# Get information about ALL VPN IPsec Phase 1 Interface (using Format Table)
+    Get-FGTVpnIpsecPhase1Interface | Format-Table
+
+    name          q_origin_key  type    interface ip-version ike-version local-gw local-gw6 remote-gw remote-gw6
+    ----          ------------  ----    --------- ---------- ----------- -------- --------- --------- ----------
+    PowerFGT_VPN  PowerFGT_VPN  static  port2     4          1           0.0.0.0  ::        192.0.2.1 ::
+    PowerFGT_VPN2 PowerFGT_VPN2 dynamic port2     4          2           0.0.0.0  ::        0.0.0.0   ::
+
+# Modify a VPN IPsec 1 Interface (dhgrp, autodiscovery ...)
+    Get-FGTVpnIpsecPhase1Interface PowerFGT_VPN | Set-FGTVpnIpsecPhase1Interface -dhgrp 14 -autodiscoverysender
+
+    name                        : PowerFGT_VPN
+    q_origin_key                : PowerFGT_VPN
+    type                        : static
+    interface                   : port2
+    ip-version                  : 4
+    ike-version                 : 1
+    local-gw                    : 0.0.0.0
+    local-gw6                   : ::
+    remote-gw                   : 192.0.2.1
+    [...]
+    dhgrp                       : 14
+    [...]
+    auto-discovery-sender       : enable
+
+
+# Remove a VPN IPsec 1 Interface
+    Get-FGTVpnIpsecPhase1Interface PowerFGT_VPN | Remove-FGTVpnIpsecPhase1Interface
+
+    Confirm
+    Are you sure you want to perform this action?
+    Performing the operation "Remove Vpn IPsec Phase 1 Interface" on target "PowerFGT_VPN".
+    [Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "Y"): y
+```
+
+#### VPN IPsec Interface Phase 2
+
+You can create a new VPN IPsec (Interface Phase2) `Add-FGTVpnIpsecPhase2Interface`,
+retrieve its information `Get-FGTVpnIpsecPhase2Interface`, modify its properties `Set-FGTVpnIpsecPhase2Interface`
+or delete it `Remove-FGTVpnIpsecPhase2Interface`.
+
+You need to have VPN IPsec Interface Phase 1 created before 
+
+```powershell
+
+# Create a VPN IPsec Phase 2 Interface named ph2_PowerFGT_VPN based on PowerFGT_VPN phase 1 with source network VPN_LOCAL and desination network VPN_REMOTE
+    Get-FGTVpnIpsecPhase1Interface -name PowerFGT_VPN | Add-FGTVpnIpsecPhase2Interface -name ph2_PowerFGT_VPN -srcname VPN_LOCAL -dstname VPN_REMOTE
+
+    name                     : ph2_PowerFGT_VPN
+    q_origin_key             : ph2_PowerFGT_VPN
+    phase1name               : PowerFGT_VPN
+    [...]
+    src-name                 : VPN_LOCAL
+    src-name6                :
+    src-addr-type            : name
+    src-end-ip6              : ::
+    src-port                 : 0
+    dst-name                 : VPN_REMOTE
+    dst-name6                :
+    dst-addr-type            : name
+    dst-end-ip6              : ::
+    dst-port                 : 0
+
+
+# Get information about ALL VPN IPsec Phase 2 Interface (using Format Table)
+    Get-FGTVpnIpsecPhase2Interface | Format-Table
+
+    name             q_origin_key     phase1name   dhcp-ipsec proposal         pfs    ipv4-df dhgrp replay keepalive
+    ----             ------------     ----------   ---------- --------         ---    ------- ----- ------ ---------
+    ph2_PowerFGT_VPN ph2_PowerFGT_VPN PowerFGT_VPN disable    aes256-sha1      enable disable 14 5  enable disable
+
+# Modify a VPN IPsec 2 Interface (comments ...)
+    Get-FGTVpnIpsecPhase2Interface ph2_PowerFGT_VPN | Set-FGTVpnIpsecPhase2Interface -comments "My PowerFGT IPsec Phase2"
+
+    name                     : ph2_PowerFGT_VPN
+    q_origin_key             : ph2_PowerFGT_VPN
+    phase1name               : PowerFGT_VPN
+    [...]
+    comments                 : My PowerFGT IPsec Phase2
+    [...]
+
+
+# Remove a VPN IPsec 2 Interface
+    Get-FGTVpnIpsecPhase2Interface ph2_PowerFGT_VPN | Remove-FGTVpnIpsecPhase2Interface
+
+    Confirm
+    Are you sure you want to perform this action?
+    Performing the operation "Remove Vpn IPsec Phase 2 Interface" on target "ph2_PowerFGT_VPN".
+    [Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "Y"): Y
+```
+
+
 ### Monitor
 
 It is possible to `monitor` FortiGate
 
 * `Get-FGTMonitorFirewallPolicy` List traffic statistics for firewall policies
+* `Get-FGTMonitorFirewallSession` List all active firewall sessions
 * `Get-FGTMonitorRouterIPv4` List all active IPv4 routing table entries
 * `Get-FGTMonitorLicenseStatus` Get current license & registration status
+* `Get-FGTMonitorNetworkARP` Get IPv4 ARP table
 * `Get-FGTMonitorSystemConfigBackup` Backup system config
 * `Get-FGTMonitorSystemFirmware` Retrieve a list of firmware images available to use for upgrade on this device
 * `Get-FGTMonitorSystemHAChecksum` List of checksums for members of HA cluster
 * `Get-FGTMonitorSystemHAPeer` Get configuration of peer(s) in HA cluster
 * `Get-FGTMonitorVpnIPsec` Return active IPsec VPNs
 * `Get-FGTMonitorVpnSsl` Retrieve a list of all SSL-VPN sessions and sub-sessions and Return statistics about the SSL-VPN
+* `Get-FGTMonitorWebfilterCategories` Return FortiGuard web filter categories
 
 to get API uri, you can use `Invoke-FGTRestMethod api/v2/monitor/?action=schema` for get list of uri for monitor
 
@@ -1117,6 +1307,11 @@ for Example
     2022-03-06 22:52:27 1646635948163208549 -0800 0000000022 traffic forward notice  root 10.88.110.122
     [...]
 
+you can also get some extra info using -extra parameter :
+* reverse_lookup to get name of IP (found by the fortigate)
+* country_id to get country of IP Address
+
+You can also select the 'timeline' using -since parameter 1h(our), 1d(ay), 7d(ays), 30(days), only for Fortiguard type
 ```
 ### Invoke API
 for example to get Fortigate System Global Info
@@ -1217,7 +1412,7 @@ If you have a REST API administrator account setup, you can connect with the API
 Connect-FGT 192.0.2.1 -ApiToken "yourtoken"
 ```
 
-You can use API Token with HTTPS (or HTTPS with FortiOS > 7.0.x but not recommended)
+You can use API Token with HTTPS (or HTTP with FortiOS > 7.0.x but not recommended)
 
 A REST API administrator account can be setup using the following FortiOS CLI commands:
 
@@ -1360,6 +1555,8 @@ Add-FGTSystemInterface
 Add-FGTSystemInterfaceMember
 Add-FGTSystemZone
 Add-FGTSystemZoneMember
+Add-FGTVpnIpsecPhase1Interface
+Add-FGTVpnIpsecPhase2Interface
 Confirm-FGTAddress
 Confirm-FGTAddressGroup
 Confirm-FGTFirewallPolicy
@@ -1370,6 +1567,8 @@ Confirm-FGTProxyAddressGroup
 Confirm-FGTRouterStatic
 Confirm-FGTVip
 Confirm-FGTVipGroup
+Confirm-FGTVpnIpsecPhase1Interface
+Confirm-FGTVpnIpsecPhase2Interface
 Confirm-FGTZone
 Connect-FGT
 Copy-FGTFirewallAddress
@@ -1392,7 +1591,9 @@ Get-FGTFirewallVip
 Get-FGTFirewallVipGroup
 Get-FGTLogTraffic
 Get-FGTMonitorFirewallPolicy
+Get-FGTMonitorFirewallSession
 Get-FGTMonitorLicenseStatus
+Get-FGTMonitorNetworkARP
 Get-FGTMonitorRouterIPv4
 Get-FGTMonitorSystemConfigBackup
 Get-FGTMonitorSystemFirmware
@@ -1400,6 +1601,7 @@ Get-FGTMonitorSystemHAChecksum
 Get-FGTMonitorSystemHAPeer
 Get-FGTMonitorVpnIPsec
 Get-FGTMonitorVpnSsl
+Get-FGTMonitorWebfilterCategories
 Get-FGTRouterPolicy
 Get-FGTRouterStatic
 Get-FGTSystemAdmin
@@ -1417,8 +1619,13 @@ Get-FGTUserGroup
 Get-FGTUserLDAP
 Get-FGTUserLocal
 Get-FGTUserRADIUS
+Get-FGTUserSAML
 Get-FGTVpnIpsecPhase1Interface
 Get-FGTVpnIpsecPhase2Interface
+Get-FGTVpnSSLClient
+Get-FGTVpnSSLPortal
+Get-FGTVpnSSLSettings
+Get-FGTWebfilterProfile
 Invoke-FGTRestMethod
 Move-FGTFirewallPolicy
 Remove-FGTFirewallAddress
@@ -1438,6 +1645,8 @@ Remove-FGTSystemInterface
 Remove-FGTSystemInterfaceMember
 Remove-FGTSystemZone
 Remove-FGTSystemZoneMember
+Remove-FGTVpnIpsecPhase1Interface
+Remove-FGTVpnIpsecPhase2Interface
 Set-FGTCipherSSL
 Set-FGTConnection
 Set-FGTFirewallAddress
@@ -1449,6 +1658,8 @@ Set-FGTSystemInterface
 Set-FGTSystemSettings
 Set-FGTSystemZone
 Set-FGTUntrustedSSL
+Set-FGTVpnIpsecPhase1Interface
+Set-FGTVpnIpsecPhase2Interface
 Show-FGTException
 ```
 

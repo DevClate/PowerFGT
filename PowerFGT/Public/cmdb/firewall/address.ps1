@@ -42,6 +42,17 @@ function Add-FGTFirewallAddress {
         Add-FGTFirewallAddress -Name FGT-Range -startip 192.0.2.1 -endip 192.0.2.100
 
         Add Address object type iprange with name FGT-Range with start IP 192.0.2.1 and end ip 192.0.2.100
+
+        .EXAMPLE
+        Add-FGTFirewallAddress -Name FGT-Country-FR -country FR
+
+        Add Address object type geo (country) with name FGT-Country-FR and value FR (France)
+
+        .EXAMPLE
+        $data = @{ "color" = 23 }
+        PS C:\>Add-FGTFirewallAddress -Name FGT -ip 192.0.2.0 -mask 255.255.255.0 -data $data
+
+        Add Address object type ipmask with name FGT and value 192.0.2.0/24 and color (23) via -data parameter
     #>
 
     Param(
@@ -57,6 +68,8 @@ function Add-FGTFirewallAddress {
         [ipaddress]$startip,
         [Parameter (Mandatory = $false, ParameterSetName = "iprange")]
         [ipaddress]$endip,
+        [Parameter (Mandatory = $false, ParameterSetName = "geography")]
+        [string]$country,
         [Parameter (Mandatory = $false)]
         [string]$interface,
         [Parameter (Mandatory = $false)]
@@ -64,6 +77,10 @@ function Add-FGTFirewallAddress {
         [string]$comment,
         [Parameter (Mandatory = $false)]
         [boolean]$visibility,
+        [Parameter (Mandatory = $false)]
+        [switch]$allowrouting,
+        [Parameter (Mandatory = $false)]
+        [hashtable]$data,
         [Parameter(Mandatory = $false)]
         [String[]]$vdom,
         [Parameter(Mandatory = $false)]
@@ -107,6 +124,10 @@ function Add-FGTFirewallAddress {
                 $address | add-member -name "type" -membertype NoteProperty -Value "fqdn"
                 $address | add-member -name "fqdn" -membertype NoteProperty -Value $fqdn
             }
+            "geography" {
+                $address | add-member -name "type" -membertype NoteProperty -Value "geography"
+                $address | add-member -name "country" -membertype NoteProperty -Value $country
+            }
             default { }
         }
 
@@ -131,6 +152,21 @@ function Add-FGTFirewallAddress {
                 else {
                     $address | add-member -name "visibility" -membertype NoteProperty -Value "disable"
                 }
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('allowrouting') ) {
+            if ( $allowrouting ) {
+                $address | add-member -name "allow-routing" -membertype NoteProperty -Value "enable"
+            }
+            else {
+                $address | add-member -name "allow-routing" -membertype NoteProperty -Value "disable"
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('data') ) {
+            $data.GetEnumerator() | ForEach-Object {
+                $address | Add-member -name $_.key -membertype NoteProperty -Value $_.value
             }
         }
 
@@ -182,9 +218,9 @@ function Copy-FGTFirewallAddress {
             $invokeParams.add( 'vdom', $vdom )
         }
 
-        $uri = "api/v2/cmdb/firewall/address/$($address.name)/?action=clone&nkey=$($name)"
-
-        Invoke-FGTRestMethod -method "POST" -uri $uri -connection $connection @invokeParams | out-Null
+        $uri = "api/v2/cmdb/firewall/address"
+        $extra = "action=clone&nkey=$($name)"
+        Invoke-FGTRestMethod -method "POST" -uri $uri -uri_escape $address.name -extra $extra -connection $connection @invokeParams | out-Null
 
         Get-FGTFirewallAddress -connection $connection @invokeParams -name $name
     }
@@ -354,6 +390,20 @@ function Set-FGTFirewallAddress {
 
         Change MyFGTAddress to set a new endip (iprange) 192.0.2.200
 
+        .EXAMPLE
+        $MyFGTAddress = Get-FGTFirewallAddress -name MyFGTAddress
+        PS C:\>$MyFGTAddress | Set-FGTFirewallAddress -country FR
+
+        Change MyFGTAddress to set a new country (geo) FR (France)
+
+        .EXAMPLE
+        $data = @{ "color" = 23 }
+        PS C:\>$MyFGTAddress = Get-FGTFirewallAddress -name MyFGTAddress
+        PS C:\>$MyFGTAddress | Set-FGTFirewallAddress -data $color
+
+        Change MyFGTAddress to set a color (23) using -data
+
+
     #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'medium', DefaultParameterSetName = 'default')]
@@ -373,6 +423,8 @@ function Set-FGTFirewallAddress {
         [ipaddress]$startip,
         [Parameter (Mandatory = $false, ParameterSetName = "iprange")]
         [ipaddress]$endip,
+        [Parameter (Mandatory = $false, ParameterSetName = "geography")]
+        [string]$country,
         [Parameter (Mandatory = $false)]
         [string]$interface,
         [Parameter (Mandatory = $false)]
@@ -380,6 +432,10 @@ function Set-FGTFirewallAddress {
         [string]$comment,
         [Parameter (Mandatory = $false)]
         [boolean]$visibility,
+        [Parameter (Mandatory = $false)]
+        [switch]$allowrouting,
+        [Parameter (Mandatory = $false)]
+        [hashtable]$data,
         [Parameter(Mandatory = $false)]
         [String[]]$vdom,
         [Parameter(Mandatory = $false)]
@@ -396,7 +452,8 @@ function Set-FGTFirewallAddress {
             $invokeParams.add( 'vdom', $vdom )
         }
 
-        $uri = "api/v2/cmdb/firewall/address/$($address.name)"
+        $uri = "api/v2/cmdb/firewall/address"
+        $old_name = $address.name
 
         $_address = new-Object -TypeName PSObject
 
@@ -446,6 +503,11 @@ function Set-FGTFirewallAddress {
                     $_address | add-member -name "fqdn" -membertype NoteProperty -Value $fqdn
                 }
             }
+            "geography" {
+                if ( $PsBoundParameters.ContainsKey('country') ) {
+                    $_address | add-member -name "country" -membertype NoteProperty -Value $country
+                }
+            }
             default { }
         }
 
@@ -473,8 +535,23 @@ function Set-FGTFirewallAddress {
             }
         }
 
+        if ( $PsBoundParameters.ContainsKey('allowrouting') ) {
+            if ( $allowrouting ) {
+                $_address | add-member -name "allow-routing" -membertype NoteProperty -Value "enable"
+            }
+            else {
+                $_address | add-member -name "allow-routing" -membertype NoteProperty -Value "disable"
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('data') ) {
+            $data.GetEnumerator() | ForEach-Object {
+                $_address | Add-member -name $_.key -membertype NoteProperty -Value $_.value
+            }
+        }
+
         if ($PSCmdlet.ShouldProcess($address.name, 'Configure Firewall Address')) {
-            Invoke-FGTRestMethod -method "PUT" -body $_address -uri $uri -connection $connection @invokeParams | out-Null
+            Invoke-FGTRestMethod -method "PUT" -body $_address -uri $uri -uri_escape $old_name -connection $connection @invokeParams | out-Null
 
             Get-FGTFirewallAddress -connection $connection @invokeParams -name $address.name
         }
@@ -528,10 +605,10 @@ function Remove-FGTFirewallAddress {
             $invokeParams.add( 'vdom', $vdom )
         }
 
-        $uri = "api/v2/cmdb/firewall/address/$($address.name)"
+        $uri = "api/v2/cmdb/firewall/address"
 
         if ($PSCmdlet.ShouldProcess($address.name, 'Remove Firewall Address')) {
-            $null = Invoke-FGTRestMethod -method "DELETE" -uri $uri -connection $connection @invokeParams
+            $null = Invoke-FGTRestMethod -method "DELETE" -uri $uri -uri_escape $address.name -connection $connection @invokeParams
         }
     }
 

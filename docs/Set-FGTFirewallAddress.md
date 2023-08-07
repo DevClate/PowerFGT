@@ -15,28 +15,36 @@ Configure a FortiGate Address
 ### default (Default)
 ```
 Set-FGTFirewallAddress [-address] <PSObject> [-name <String>] [-interface <String>] [-comment <String>]
- [-visibility <Boolean>] [-vdom <String[]>] [-connection <PSObject>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>] [-vdom <String[]>] [-connection <PSObject>]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### fqdn
 ```
 Set-FGTFirewallAddress [-address] <PSObject> [-name <String>] [-fqdn <String>] [-interface <String>]
- [-comment <String>] [-visibility <Boolean>] [-vdom <String[]>] [-connection <PSObject>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+ [-comment <String>] [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>] [-vdom <String[]>]
+ [-connection <PSObject>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### ipmask
 ```
 Set-FGTFirewallAddress [-address] <PSObject> [-name <String>] [-ip <IPAddress>] [-mask <IPAddress>]
- [-interface <String>] [-comment <String>] [-visibility <Boolean>] [-vdom <String[]>] [-connection <PSObject>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-interface <String>] [-comment <String>] [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>]
+ [-vdom <String[]>] [-connection <PSObject>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ### iprange
 ```
 Set-FGTFirewallAddress [-address] <PSObject> [-name <String>] [-startip <IPAddress>] [-endip <IPAddress>]
- [-interface <String>] [-comment <String>] [-visibility <Boolean>] [-vdom <String[]>] [-connection <PSObject>]
- [-WhatIf] [-Confirm] [<CommonParameters>]
+ [-interface <String>] [-comment <String>] [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>]
+ [-vdom <String[]>] [-connection <PSObject>] [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### geography
+```
+Set-FGTFirewallAddress [-address] <PSObject> [-name <String>] [-country <String>] [-interface <String>]
+ [-comment <String>] [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>] [-vdom <String[]>]
+ [-connection <PSObject>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -100,6 +108,23 @@ PS C:\>$MyFGTAddress | Set-FGTFirewallAddress -endip 192.0.2.200
 ```
 
 Change MyFGTAddress to set a new endip (iprange) 192.0.2.200
+
+### EXAMPLE 8
+```
+$MyFGTAddress = Get-FGTFirewallAddress -name MyFGTAddress
+PS C:\>$MyFGTAddress | Set-FGTFirewallAddress -country FR
+```
+
+Change MyFGTAddress to set a new country (geo) FR (France)
+
+### EXAMPLE 9
+```
+$data = @{ "color" = 23 }
+PS C:\>$MyFGTAddress = Get-FGTFirewallAddress -name MyFGTAddress
+PS C:\>$MyFGTAddress | Set-FGTFirewallAddress -data $color
+```
+
+Change MyFGTAddress to set a color (23) using -data
 
 ## PARAMETERS
 
@@ -208,6 +233,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -country
+{{ Fill country Description }}
+
+```yaml
+Type: String
+Parameter Sets: geography
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### -interface
 {{ Fill interface Description }}
 
@@ -249,6 +289,36 @@ Aliases:
 Required: False
 Position: Named
 Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -allowrouting
+{{ Fill allowrouting Description }}
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -data
+{{ Fill data Description }}
+
+```yaml
+Type: Hashtable
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

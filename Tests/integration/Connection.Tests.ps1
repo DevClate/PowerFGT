@@ -6,7 +6,7 @@
 . ../common.ps1
 
 Describe  "Connect to a FortiGate (using HTTP)" {
-    It "Connect to a FortiGate (using HTTP) and check global variable" {
+    It "Connect to a FortiGate (using HTTP) and check global variable" -Skip:( -not $httpOnly ) {
         Connect-FGT $ipaddress -Username $login -password $mysecpassword -httpOnly -port $port
         $DefaultFGTConnection | Should -Not -BeNullOrEmpty
         $DefaultFGTConnection.server | Should -Be $ipaddress
@@ -18,11 +18,11 @@ Describe  "Connect to a FortiGate (using HTTP)" {
         $DefaultFGTConnection.version | Should -Not -BeNullOrEmpty
         $DefaultFGTConnection.serial | Should -Not -BeNullOrEmpty
     }
-    It "Disconnect to a FortiGate (using HTTP) and check global variable" {
+    It "Disconnect to a FortiGate (using HTTP) and check global variable" -Skip:( -not $httpOnly ) {
         Disconnect-FGT -confirm:$false
         $DefaultFGTConnection | Should -Be $null
     }
-    It "Connect to a FortiGate (using HTTP) with wrong password" {
+    It "Connect to a FortiGate (using HTTP) with wrong password" -Skip:( -not $httpOnly ) {
         { Connect-FGT $ipaddress -Username $login -password $mywrongpassword -httpOnly -port $port } | Should -throw "Log in failure. Most likely an incorrect username/password combo"
     }
     #TODO: Connect using MFA (token) and/or need to change password (admin expiration)
@@ -60,11 +60,11 @@ Describe "Connect to a fortigate (using HTTPS)" {
     #This test only work with PowerShell 6 / Core (-SkipCertificateCheck don't change global variable but only Invoke-WebRequest/RestMethod)
     #This test will be fail, if there is valid certificate...
     It "Connect to a FortiGate (using HTTPS) and check global variable" -Skip:("Desktop" -eq $PSEdition -Or $httpOnly) {
-        { Connect-FGT $ipaddress -Username $login -password $mysecpassword } | Should throw "Unable to connect (certificate)"
+        { Connect-FGT $ipaddress -Username $login -password $mysecpassword } | Should -throw "Unable to connect (certificate)"
     }
 
     It "Connect to a FortiGate (using HTTPS) with wrong password" -Skip:($httpOnly) {
-        { Connect-FGT $ipaddress -Username $login -password $mywrongpassword -port $port } | Should -throw "Log in failure. Most likely an incorrect username/password combo"
+        { Connect-FGT $ipaddress -Username $login -password $mywrongpassword -port $port -SkipCertificateCheck:$SkipCertificateCheck } | Should -throw "Log in failure. Most likely an incorrect username/password combo"
     }
 
     It "Connect to a Fortigate (using HTTPS) with apiToken" -Skip:($apitoken -eq $null -Or $httpOnly) {
@@ -96,8 +96,9 @@ Describe "Connect to a FortiGate (with post-login-banner enable)" {
         $fgt.session | Should -Not -BeNullOrEmpty
         $fgt.server | Should -Be $ipaddress
         $fgt.invokeParams | Should -Not -BeNullOrEmpty
+        #$fgt.invokeParams.SkipCertificateCheck | Should -Be $invokeParams.SkipCertificateCheck
         $fgt.port | Should -Be $port
-        $fgt.httpOnly | Should -Be $true
+        $fgt.httpOnly | Should -Be $invokeParams.httpOnly
         $fgt.session | Should -Not -BeNullOrEmpty
         $fgt.headers | Should -Not -BeNullOrEmpty
         $fgt.version | Should -Not -BeNullOrEmpty
@@ -119,13 +120,14 @@ Describe "Connect to a FortiGate (with post-login-banner enable)" {
 
 Describe "Connect to a FortiGate (using multi connection)" {
     It "Connect to a FortiGate (using HTTPS and store on fgt variable)" {
-        $script:fgt = Connect-FGT $ipaddress -Username $login -password $mysecpassword -httpOnly -SkipCertificate -DefaultConnection:$false -port $port
+        $script:fgt = Connect-FGT @invokeParams -DefaultConnection:$false
         $DefaultFGTConnection | Should -BeNullOrEmpty
         $fgt.session | Should -Not -BeNullOrEmpty
         $fgt.server | Should -Be $ipaddress
         $fgt.invokeParams | Should -Not -BeNullOrEmpty
+        #$fgt.invokeParams.SkipCertificateCheck | Should -Be $invokeParams.SkipCertificateCheck
         $fgt.port | Should -Be $port
-        $fgt.httpOnly | Should -Be $true
+        $fgt.httpOnly | Should -Be $invokeParams.httpOnly
         $fgt.session | Should -Not -BeNullOrEmpty
         $fgt.headers | Should -Not -BeNullOrEmpty
         $fgt.version | Should -Not -BeNullOrEmpty
@@ -221,14 +223,38 @@ Describe "Connect to a FortiGate (using multi connection)" {
         It "Use Multi connection for call Get User RADIUS" {
             { Get-FGTUserRADIUS -connection $fgt } | Should -Not -Throw
         }
+        It "Use Multi connection for call Get User SAML (> 6.2.0)" -skip:($fgt_version -lt "6.2.0") {
+            { Get-FGTUserSAML -connection $fgt } | Should -Not -Throw
+        }
+        It "Use Multi connection for call Get User SAML (< 6.2.0)" -skip:($fgt_version -ge "6.2.0") {
+            { Get-FGTUserSAML -connection $fgt } | Should -Throw "You can't get User SAML with FortiOS < 6.2.0"
+        }
         It "Use Multi connection for call Get VPN IPsec Phase 1 Interface" {
             { Get-FGTVpnIpsecPhase1Interface -connection $fgt } | Should -Not -Throw
         }
         It "Use Multi connection for call Get VPN IPsec Phase 2 Interface" {
             { Get-FGTVpnIpsecPhase2Interface -connection $fgt } | Should -Not -Throw
         }
+        It "Use Multi connection for call Get VPN SSL Client" -skip:($fgt_version -lt "7.0.0") {
+            { Get-FGTVpnSSLClient -connection $fgt } | Should -Not -Throw
+        }
+        It "Use Multi connection for call Get VPN SSL Client" -skip:($fgt_version -ge "7.0.0") {
+            { Get-FGTVpnSSLClient -connection $fgt } | Should -Throw "VPN SSL Client is not available before FortiOS 7.0.x"
+        }
+        It "Use Multi connection for call Get VPN SSL Portal" {
+            { Get-FGTVpnSSLPortal -connection $fgt } | Should -Not -Throw
+        }
+        It "Use Multi connection for call Get VPN SSL Settings" {
+            { Get-FGTVpnSSLSettings -connection $fgt } | Should -Not -Throw
+        }
+        It "Use Multi connection for call Get Webfilter Profile" {
+            { Get-FGTWebfilterProfile -connection $fgt } | Should -Not -Throw
+        }
         It "Use Multi connection for call Get Monitor Firewall Policy" {
             { Get-FGTMonitorFirewallPolicy -connection $fgt } | Should -Not -Throw
+        }
+        It "Use Multi connection for call Get Monitor Firewall Session" {
+            { Get-FGTMonitorFirewallSession -connection $fgt } | Should -Not -Throw
         }
         It "Use Multi connection for call Get Monitor Router IPv4" {
             { Get-FGTMonitorRouterIPv4 -connection $fgt } | Should -Not -Throw
@@ -254,11 +280,20 @@ Describe "Connect to a FortiGate (using multi connection)" {
         It "Use Multi connection for call Get Monitor License Status" {
             { Get-FGTMonitorLicenseStatus -connection $fgt } | Should -Not -Throw
         }
+        It "Use Multi connection for call Get Monitor Network ARP (> 6.4.0)" -skip:($fgt_version -lt "6.4.0") {
+            { Get-FGTMonitorNetworkARP -connection $fgt } | Should -Not -Throw
+        }
+        It "Use Multi connection for call Get Monitor Network ARP (< 6.4.0)" -skip:($fgt_version -ge "6.4.0") {
+            { Get-FGTMonitorNetworkARP -connection $fgt } | Should -Throw "Monitor Network ARP is not available before Forti OS 6.4"
+        }
         It "Use Multi connection for call Get Monitor VPN SSL" {
             { Get-FGTMonitorVpnSsl -connection $fgt } | Should -Not -Throw
         }
         It "Use Multi connection for call Get Monitor VPN IPsec" {
             { Get-FGTMonitorVpnIPsec -connection $fgt } | Should -Not -Throw
+        }
+        It "Use Multi connection for call Get Monitor Webfilter Cateogries" {
+            { Get-FGTMonitorWebfilterCategories -connection $fgt } | Should -Not -Throw
         }
     }
 

@@ -15,19 +15,29 @@ Add a FortiGate Address
 ### fqdn
 ```
 Add-FGTFirewallAddress -name <String> [-fqdn <String>] [-interface <String>] [-comment <String>]
- [-visibility <Boolean>] [-vdom <String[]>] [-connection <PSObject>] [<CommonParameters>]
+ [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>] [-vdom <String[]>] [-connection <PSObject>]
+ [<CommonParameters>]
 ```
 
 ### ipmask
 ```
 Add-FGTFirewallAddress -name <String> [-ip <IPAddress>] [-mask <IPAddress>] [-interface <String>]
- [-comment <String>] [-visibility <Boolean>] [-vdom <String[]>] [-connection <PSObject>] [<CommonParameters>]
+ [-comment <String>] [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>] [-vdom <String[]>]
+ [-connection <PSObject>] [<CommonParameters>]
 ```
 
 ### iprange
 ```
 Add-FGTFirewallAddress -name <String> [-startip <IPAddress>] [-endip <IPAddress>] [-interface <String>]
- [-comment <String>] [-visibility <Boolean>] [-vdom <String[]>] [-connection <PSObject>] [<CommonParameters>]
+ [-comment <String>] [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>] [-vdom <String[]>]
+ [-connection <PSObject>] [<CommonParameters>]
+```
+
+### geography
+```
+Add-FGTFirewallAddress -name <String> [-country <String>] [-interface <String>] [-comment <String>]
+ [-visibility <Boolean>] [-allowrouting] [-data <Hashtable>] [-vdom <String[]>] [-connection <PSObject>]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -76,6 +86,21 @@ Add-FGTFirewallAddress -Name FGT-Range -startip 192.0.2.1 -endip 192.0.2.100
 ```
 
 Add Address object type iprange with name FGT-Range with start IP 192.0.2.1 and end ip 192.0.2.100
+
+### EXAMPLE 7
+```
+Add-FGTFirewallAddress -Name FGT-Country-FR -country FR
+```
+
+Add Address object type geo (country) with name FGT-Country-FR and value FR (France)
+
+### EXAMPLE 8
+```
+$data = @{ "color" = 23 }
+PS C:\>Add-FGTFirewallAddress -Name FGT -ip 192.0.2.0 -mask 255.255.255.0 -data $data
+```
+
+Add Address object type ipmask with name FGT and value 192.0.2.0/24 and color (23) via -data parameter
 
 ## PARAMETERS
 
@@ -169,6 +194,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -country
+{{ Fill country Description }}
+
+```yaml
+Type: String
+Parameter Sets: geography
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### -interface
 {{ Fill interface Description }}
 
@@ -210,6 +250,36 @@ Aliases:
 Required: False
 Position: Named
 Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -allowrouting
+{{ Fill allowrouting Description }}
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -data
+{{ Fill data Description }}
+
+```yaml
+Type: Hashtable
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
